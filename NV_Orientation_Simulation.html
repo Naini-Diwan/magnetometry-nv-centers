@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NV-ODMR Field Orientation — Case Explorer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg: #0c1210;
+    --panel: #121b18;
+    --panel-line: #223129;
+    --ink: #d9ede4;
+    --ink-dim: #7d9a8e;
+    --phosphor: #5ee6a8;
+    --amber: #ffb454;
+    --k-color: #5b8fef;   /* kappa  - blue   [111]  */
+    --x-color: #ef5b6b;   /* chi    - red    [-1-11]*/
+    --p-color: #ffb454;   /* phi    - orange [-11-1]*/
+    --l-color: #6fdc8c;   /* lambda - green  [1-1-1]*/
+    --field-color: #d861f0;
+    --grid: #1c2a24;
+    --crystal-color: #6fb8ff;  /* crystal frame x,y,z — cool blue-white */
+    --ground-color: #ff9f6e;   /* ground plane x-y — warm coral, distinct from crystal & lab */
+    --lab-color: #e8c37a;      /* lab frame X,Y,Z — dashed gold */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;}
+  ::selection{background:var(--phosphor); color:#04120c;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px;}
+
+  header{border-bottom:1px solid var(--panel-line); padding-bottom:18px; margin-bottom:22px;}
+  h1{font-size:26px; font-weight:800; margin:0 0 14px; letter-spacing:-.01em; line-height:1.2;}
+
+  .frame-legend{display:flex; flex-wrap:wrap; gap:18px; align-items:center;}
+  .frame-legend-item{display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace;
+    font-size:12px; color:var(--ink-dim);}
+  .fl-tag{color:var(--ink); font-weight:600;}
+  .fl-line{display:inline-block; width:30px; height:0; border-top-width:3px; border-top-style:solid;}
+  .fl-crystal{border-color:var(--crystal-color);}
+  .fl-lab{border-color:var(--lab-color); border-top-style:dashed;}
+  .fl-ground{background:rgba(255,159,110,0.22); border:1px solid rgba(255,159,110,0.55); height:12px; border-top:none;}
+  .fl-field{border-color:var(--field-color); border-top-style:dashed; border-top-width:3px;}
+
+  .layout{display:grid; grid-template-columns: 1.15fr 0.85fr; gap:18px; margin-top:22px;}
+  @media(max-width:920px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:16px;}
+  .panel h2{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-dim); margin:0 0 12px; display:flex; align-items:center; gap:8px;}
+  .panel h2::before{content:''; width:6px; height:6px; background:var(--phosphor); border-radius:50%; box-shadow:0 0 8px var(--phosphor);}
+
+  canvas{display:block; width:100%; height:auto; background:
+    radial-gradient(ellipse at 50% 40%, #0f1a16 0%, #0a1210 75%);
+    border-radius:8px; touch-action:none; cursor:grab;}
+  canvas:active{cursor:grabbing;}
+
+  /* readout row */
+  .readouts{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:14px;}
+  .stat{background:#0f1815; border:1px solid var(--panel-line); border-radius:8px; padding:9px 10px;}
+  .stat .l{font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim);}
+  .stat .v{font-family:'IBM Plex Mono',monospace; font-size:19px; font-weight:600; color:var(--ink); margin-top:2px;}
+  .stat .v.accent{color:var(--phosphor);}
+  .stat .v.field{color:var(--field-color);}
+
+  /* case strip */
+  .case-strip{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
+  .case-btn{font-family:'IBM Plex Mono',monospace; font-size:11px; padding:7px 10px; border-radius:6px;
+    border:1px solid var(--panel-line); background:#0f1815; color:var(--ink-dim); cursor:pointer; transition:.15s;}
+  .case-btn:hover{border-color:var(--phosphor); color:var(--ink);}
+  .case-btn.active{background:var(--phosphor); color:#04120c; border-color:var(--phosphor); font-weight:700;}
+
+  .controls{display:flex; align-items:center; gap:10px; margin-top:14px;}
+  .btn-icon{background:#0f1815; border:1px solid var(--panel-line); color:var(--ink); width:38px; height:38px;
+    border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .btn-icon:hover{border-color:var(--phosphor);}
+  .btn-icon.play{background:var(--phosphor); color:#04120c; border-color:var(--phosphor);}
+  .speed{flex:1; display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-dim);}
+  input[type=range]{flex:1; accent-color:var(--phosphor);}
+
+  /* right column */
+  .case-title{font-size:17px; font-weight:700; margin-bottom:2px;}
+  .case-desc{color:var(--ink-dim); font-size:12.5px; line-height:1.55; margin-bottom:14px;}
+
+  .legend{display:flex; flex-direction:column; gap:6px; margin-bottom:14px;}
+  .legend-row{display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:11.5px;}
+  .swatch{width:20px; height:4px; border-radius:2px; flex-shrink:0;}
+  .legend-row .nm{color:var(--ink); width:34px; flex-shrink:0;}
+  .legend-row .dir{color:var(--ink-dim);}
+  .eq-swatch{width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.85); flex-shrink:0;}
+
+  #barChart{margin-bottom:16px;}
+  #specChart{}
+
+  .dipdots{display:flex; gap:5px; margin-top:6px;}
+  .dipdot{width:9px; height:9px; border-radius:50%; background:#1c2a24; border:1px solid var(--panel-line);}
+  .dipdot.on{background:var(--field-color); border-color:var(--field-color); box-shadow:0 0 6px var(--field-color);}
+
+  footer{margin-top:26px; padding-top:14px; border-top:1px solid var(--panel-line);
+    color:var(--ink-dim); font-size:11px; font-family:'IBM Plex Mono',monospace; line-height:1.6;}
+  footer a{color:var(--phosphor); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>CW‑ODMR Field Orientation — Case Explorer</h1>
+    <div class="frame-legend">
+      <div class="frame-legend-item">
+        <span class="fl-line fl-crystal"></span> Crystal frame <span class="fl-tag">x, y, z</span>
+      </div>
+      <div class="frame-legend-item">
+        <span class="fl-line fl-lab"></span> Lab frame <span class="fl-tag">X, Y, Z · 45° azimuth</span>
+      </div>
+      <div class="frame-legend-item">
+        <span class="fl-line fl-ground"></span> Ground plane <span class="fl-tag">x–y</span>
+      </div>
+      <div class="frame-legend-item">
+        <span class="fl-line fl-field"></span> Applied field <span class="fl-tag">B</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: 3D vector view -->
+    <div class="panel">
+      <h2>Crystal Frame &amp; Field Vector</h2>
+      <canvas id="scene" width="640" height="520"></canvas>
+
+      <div class="readouts">
+        <div class="stat"><div class="l">θ (polar)</div><div class="v accent" id="rTheta">–</div></div>
+        <div class="stat"><div class="l">φ (azimuth)</div><div class="v accent" id="rPhi">–</div></div>
+        <div class="stat"><div class="l">|B|</div><div class="v field" id="rMag">–</div></div>
+        <div class="stat"><div class="l">Dips</div><div class="v" id="rDips">–</div></div>
+      </div>
+
+      <div class="case-strip" id="caseStrip"></div>
+
+      <div class="controls">
+        <button class="btn-icon" id="prevBtn" title="Previous case">&#9664;</button>
+        <button class="btn-icon play" id="playBtn" title="Play / pause">&#9654;</button>
+        <button class="btn-icon" id="nextBtn" title="Next case">&#9654;&#9654;</button>
+        <button class="btn-icon" id="zoomOutBtn" title="Zoom out">&#8722;</button>
+        <button class="btn-icon" id="zoomInBtn" title="Zoom in">&#43;</button>
+        <div class="speed">
+          <span>SPEED</span>
+          <input type="range" id="speedSlider" min="0.5" max="2.5" step="0.1" value="1">
+        </div>
+        <button class="case-btn" id="anglesBtn" title="Show/hide angles and axes">Show angles</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: info + charts -->
+    <div class="panel">
+      <h2>Case Detail</h2>
+      <div class="case-title" id="caseTitle">Case 1 — one dip</div>
+      <div class="case-desc" id="caseDesc">No applied field. All four NV projections are zero.</div>
+
+      <div class="legend">
+        <div class="legend-row"><span class="swatch" style="background:var(--k-color)"></span><span class="nm">NVκ</span><span class="dir">&#124;&#124; [111]</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--x-color)"></span><span class="nm">NVχ</span><span class="dir">&#124;&#124; [1̄1̄1]</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--p-color)"></span><span class="nm">NVφ</span><span class="dir">&#124;&#124; [1̄11̄]</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--l-color)"></span><span class="nm">NVλ</span><span class="dir">&#124;&#124; [11̄1̄]</span></div>
+        <div class="legend-row"><span class="eq-swatch"></span><span class="nm">equal</span><span class="dir">tied NV projections</span></div>
+      </div>
+
+      <h2 style="margin-top:4px;">Projection onto each NV axis</h2>
+      <canvas id="barChart" width="460" height="150"></canvas>
+
+      <h2>Simulated ODMR spectrum</h2>
+      <canvas id="specChart" width="460" height="380"></canvas>
+      <div class="dipdots" id="dipDots"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   DATA — the 9 frames (Case 1 .. Case 8, with 4a/4b split)
+--------------------------------------------------------------- */
+const D = 2.87, GAMMA = 0.028; // GHz, GHz/mT
+
+const CASES = [
+  { id:'1',  label:'Case 1', title:'Case 1 — one dip', dips:1,
+    theta:null, phi:null, mag:0,
+    desc:'B = 0. Projection on every NV orientation is zero — a single dip at the ZFS (~2.87 GHz).' },
+  { id:'2',  label:'Case 2', title:'Case 2 — two dips', dips:2,
+    theta:0, phi:0, mag:1.3,
+    desc:'B along a ⟨100⟩ axis (here z). All four |Bᵢ| are equal → all Zeeman splittings overlap into 2 dips.' },
+  { id:'3',  label:'Case 3', title:'Case 3 — three dips', dips:3,
+    theta:90, phi:45, mag:1.1,
+    desc:'B along a ⟨110⟩ axis. NVφ, NVλ see zero projection (central ZFS dip); NVκ, NVλ split equally & oppositely.' },
+  { id:'4a', label:'Case 4a', title:'Case 4a — four dips', dips:4,
+    theta:90, phi:30, mag:1.3,
+    desc:'One crystal component of B is zero, the other two unequal & non-zero. Two NV pairs, each pair degenerate.' },
+  { id:'4b', label:'Case 4b', title:'Case 4b — four dips', dips:4,
+    theta:54.7, phi:45, mag:1.3,
+    desc:'B along a ⟨111⟩ axis (here NVκ). The other three NV orientations are equally projected by symmetry.' },
+  { id:'5',  label:'Case 5', title:'Case 5 — five dips', dips:5,
+    theta:35, phi:45, mag:1.3,
+    desc:'B ⊥ to one NV (NVχ, ZFS dip) with a degenerate pair (NVφ, NVλ) plus one distinct NVκ splitting.' },
+  { id:'6',  label:'Case 6', title:'Case 6 — six dips', dips:6,
+    theta:28, phi:45, mag:1.3,
+    desc:'One NV pair (NVφ, NVλ) shares equal projection; the other two NVs (κ, χ) are unequal & non-zero.' },
+  { id:'7',  label:'Case 7', title:'Case 7 — seven dips', dips:7,
+    theta:35, phi:30, mag:1.6,
+    desc:'B ⊥ to one NV only (NVχ, ZFS dip); the remaining three NV orientations are all distinct.' },
+  { id:'8',  label:'Case 8', title:'Case 8 — eight dips', dips:8,
+    theta:30, phi:25, mag:1.6,
+    desc:'Fully generic B. All four NV orientations see distinct, non-zero projections — maximum 8 dips.' },
+];
+
+// NV unit vectors (crystal frame)
+const NV = {
+  k: {v:[ 1, 1, 1].map(n=>n/Math.sqrt(3)), color:'#5b8fef', name:'NVκ'},
+  x: {v:[-1,-1, 1].map(n=>n/Math.sqrt(3)), color:'#ef5b6b', name:'NVχ'},
+  p: {v:[-1, 1,-1].map(n=>n/Math.sqrt(3)), color:'#ffb454', name:'NVφ'},
+  l: {v:[ 1,-1,-1].map(n=>n/Math.sqrt(3)), color:'#6fdc8c', name:'NVλ'},
+};
+
+function cartesian(theta, phi, mag){
+  if(theta===null) return [0,0,0];
+  const t = theta*Math.PI/180, p = phi*Math.PI/180;
+  return [ mag*Math.sin(t)*Math.cos(p), mag*Math.sin(t)*Math.sin(p), mag*Math.cos(t) ];
+}
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function normalize(a){ const m=Math.hypot(a[0],a[1],a[2]); return m<1e-9?[0,0,1]:[a[0]/m,a[1]/m,a[2]/m]; }
+function slerp(a,b,t){
+  const dv = Math.max(-1,Math.min(1,dot(a,b)));
+  const th = Math.acos(dv);
+  if(th<1e-5) return a.slice();
+  const s = Math.sin(th);
+  const w1 = Math.sin((1-t)*th)/s, w2 = Math.sin(t*th)/s;
+  return [a[0]*w1+b[0]*w2, a[1]*w1+b[1]*w2, a[2]*w1+b[2]*w2];
+}
+
+/* ---------------------------------------------------------------
+   3D -> 2D projection (simple rotating orthographic camera)
+--------------------------------------------------------------- */
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+let W = 640, H = 520;
+const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+canvas.width = W*DPR; canvas.height = H*DPR;
+canvas.style.width = W+'px'; canvas.style.height = H+'px';
+ctx.scale(DPR, DPR);
+ctx.imageSmoothingEnabled = true;
+ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+let camYaw = 0.78, camPitch = 0.52;   // radians — camYaw orbits around vertical z, camPitch tilts elevation
+let camZoom = 1;                       // 1 = default; >1 zoomed in, <1 zoomed out
+let dragging=false, lastX=0, lastY=0;
+
+canvas.addEventListener('pointerdown', e=>{dragging=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointerup', ()=> dragging=false);
+canvas.addEventListener('pointerleave', ()=> dragging=false);
+canvas.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  camYaw   += (e.clientX-lastX)*0.01;
+  camPitch += (e.clientY-lastY)*-0.01;
+  camPitch = Math.max(0.08, Math.min(1.45, camPitch));
+  lastX=e.clientX; lastY=e.clientY;
+});
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  camZoom = Math.max(0.5, Math.min(2.5, camZoom * (e.deltaY<0 ? 1.08 : 0.93)));
+}, {passive:false});
+
+// z is treated as the vertical (up) axis; x,y form the horizontal ground plane.
+function project(x,y,z){
+  const cyaw=Math.cos(camYaw), syaw=Math.sin(camYaw);
+  // orbit (yaw) around the vertical z axis
+  let x1 = x*cyaw - y*syaw;
+  let g1 = x*syaw + y*cyaw;   // horizontal "ground depth" after yaw
+  // tilt (pitch) mixes ground-depth and vertical height
+  const cpitch=Math.cos(camPitch), spitch=Math.sin(camPitch);
+  let depth  = g1*cpitch - z*spitch;   // into-the-screen depth, used for perspective
+  let height = g1*spitch + z*cpitch;   // screen-vertical, up positive
+  const focal = 4.6;
+  const scale = focal/(focal+depth);
+  const S = 148*camZoom;
+  return { sx: W/2 + x1*S*scale, sy: H/2 - height*S*scale, depth:depth, scale };
+}
+
+function line3(p1,p2,color,width,glow){
+  const a=project(...p1), b=project(...p2);
+  ctx.save();
+  if(glow){ ctx.shadowColor=color; ctx.shadowBlur=glow; }
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+  ctx.restore();
+}
+function arrowHead(base,tip,color,size,glow){
+  const a=project(...base), b=project(...tip);
+  const ang = Math.atan2(b.sy-a.sy, b.sx-a.sx);
+  ctx.save();
+  if(glow){ ctx.shadowColor=color; ctx.shadowBlur=glow; }
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(b.sx, b.sy);
+  ctx.lineTo(b.sx - size*Math.cos(ang-0.32), b.sy - size*Math.sin(ang-0.32));
+  ctx.lineTo(b.sx - size*0.62*Math.cos(ang), b.sy - size*0.62*Math.sin(ang));
+  ctx.lineTo(b.sx - size*Math.cos(ang+0.32), b.sy - size*Math.sin(ang+0.32));
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function label3(pos,text,color,dy){
+  const p=project(...pos);
+  ctx.font='600 12px IBM Plex Mono, monospace';
+  ctx.lineWidth=3; ctx.strokeStyle='rgba(8,14,12,0.75)';
+  ctx.strokeText(text, p.sx+7, p.sy+(dy||0));
+  ctx.fillStyle=color;
+  ctx.fillText(text, p.sx+7, p.sy+(dy||0));
+}
+function dashedLine3(p1,p2,color,width,dash){
+  const a=project(...p1), b=project(...p2);
+  ctx.save();
+  ctx.setLineDash(dash||[4,4]);
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+  ctx.restore();
+}
+let dashPhase = 0; // advances each frame to animate the B vector as marching dots
+function marchingLine3(p1,p2,color,width,glow,dash){
+  const a=project(...p1), b=project(...p2);
+  ctx.save();
+  if(glow){ ctx.shadowColor=color; ctx.shadowBlur=glow; }
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round';
+  ctx.setLineDash(dash||[2,10]);
+  ctx.lineDashOffset = -dashPhase;
+  ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+  ctx.restore();
+}
+function hexToRgba(hex, alpha){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function dot3(pos,color,r){
+  const p=project(...pos);
+  ctx.fillStyle=color;
+  ctx.beginPath(); ctx.arc(p.sx,p.sy,r,0,Math.PI*2); ctx.fill();
+}
+function arcPath3(points,color,width,dash){
+  ctx.save();
+  if(dash) ctx.setLineDash(dash);
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath();
+  points.forEach((pt,i)=>{
+    const p=project(...pt);
+    if(i===0) ctx.moveTo(p.sx,p.sy); else ctx.lineTo(p.sx,p.sy);
+  });
+  ctx.stroke();
+  ctx.restore();
+}
+
+function fillPoly3(points, fillColor, strokeColor, strokeWidth){
+  ctx.save();
+  ctx.beginPath();
+  points.forEach((p,i)=>{
+    const pr = project(...p);
+    if(i===0) ctx.moveTo(pr.sx, pr.sy); else ctx.lineTo(pr.sx, pr.sy);
+  });
+  ctx.closePath();
+  if(fillColor){ ctx.fillStyle = fillColor; ctx.fill(); }
+  if(strokeColor){ ctx.strokeStyle = strokeColor; ctx.lineWidth = strokeWidth||1; ctx.stroke(); }
+  ctx.restore();
+}
+
+/* --- ground: a floor flush with the crystal's bottom face, sized to match its sides --- */
+function drawGround(){
+  const half = CUBE_C;      // same half-edge as the crystal cube
+  const z = -CUBE_C;        // flush with the cube's bottom face
+  const corners = [
+    [-half,-half,z], [half,-half,z],
+    [half, half,z], [-half, half,z],
+  ];
+  fillPoly3(corners, 'rgba(255,159,110,0.09)', 'rgba(255,159,110,0.4)', 1.4);
+}
+
+/* --- lab frame (X,Y,Z), rotated 45° about the vertical from the crystal frame --- */
+const LAB_ROT = 45 * Math.PI/180;
+const LAB_X = [ Math.cos(LAB_ROT),  Math.sin(LAB_ROT), 0];
+const LAB_Y = [-Math.sin(LAB_ROT),  Math.cos(LAB_ROT), 0];
+const LAB_Z = [0,0,1];
+
+/* --- corner axis gizmos: compact orientation compasses, kept off the crystal itself.
+   Uses the same camYaw/camPitch rotation as the main view (orthographic, no perspective)
+   so both gizmos rotate correctly in sync with the crystal / camera. --- */
+function drawAxisGizmo(cx, cy, radius, axes, dashed){
+  const cyaw=Math.cos(camYaw), syaw=Math.sin(camYaw);
+  const cpitch=Math.cos(camPitch), spitch=Math.sin(camPitch);
+  const items = axes.map(ax=>{
+    const [x,y,z]=ax.v;
+    const x1 = x*cyaw - y*syaw;
+    const g1 = x*syaw + y*cyaw;
+    const depth  = g1*cpitch - z*spitch;
+    const height = g1*spitch + z*cpitch;
+    return {dx:x1, dy:-height, depth, label:ax.label, color:ax.color};
+  });
+  items.sort((a,b)=>a.depth-b.depth); // draw far axes first, near axes on top
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,radius+15,0,Math.PI*2);
+  ctx.fillStyle='rgba(15,24,21,0.55)'; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.09)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.restore();
+
+  items.forEach(it=>{
+    const alpha = 0.5 + 0.5*((it.depth+1)/2);
+    const tipx = cx+it.dx*radius, tipy = cy+it.dy*radius;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if(dashed) ctx.setLineDash([5,3]);
+    ctx.strokeStyle = it.color; ctx.lineWidth = 2; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(tipx,tipy); ctx.stroke();
+    ctx.restore();
+
+    const ang = Math.atan2(tipy-cy, tipx-cx);
+    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = it.color;
+    ctx.beginPath();
+    ctx.moveTo(tipx, tipy);
+    ctx.lineTo(tipx-6*Math.cos(ang-0.32), tipy-6*Math.sin(ang-0.32));
+    ctx.lineTo(tipx-3*Math.cos(ang), tipy-3*Math.sin(ang));
+    ctx.lineTo(tipx-6*Math.cos(ang+0.32), tipy-6*Math.sin(ang+0.32));
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.font='600 11px IBM Plex Mono, monospace';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(8,14,12,0.75)';
+    const lx = cx+it.dx*(radius+13), ly = cy+it.dy*(radius+13)+4;
+    ctx.strokeText(it.label, lx, ly);
+    ctx.fillStyle = it.color;
+    ctx.fillText(it.label, lx, ly);
+    ctx.restore();
+  });
+}
+function drawCornerGizmos(){
+  const r = 24;
+  drawAxisGizmo(52, 52, r, [
+    {v:[1,0,0], label:'x', color:'#6fb8ff'},
+    {v:[0,1,0], label:'y', color:'#6fb8ff'},
+    {v:[0,0,1], label:'z', color:'#6fb8ff'},
+  ], false);
+  drawAxisGizmo(W-52, 52, r, [
+    {v:LAB_X, label:'X', color:'#e8c37a'},
+    {v:LAB_Y, label:'Y', color:'#e8c37a'},
+    {v:LAB_Z, label:'Z', color:'#e8c37a'},
+  ], true);
+}
+
+/* --- crystal unit cube --- */
+const CUBE_C = 0.72; // half-edge, cube spans [-C,C]^3, NV axes point through alternating corners
+function drawCube(){
+  const c = CUBE_C;
+  const verts = [];
+  for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]) verts.push([sx*c,sy*c,sz*c]);
+  const edges = [];
+  for(let i=0;i<8;i++) for(let j=i+1;j<8;j++){
+    let diff=0;
+    for(let k=0;k<3;k++) if(verts[i][k]!==verts[j][k]) diff++;
+    if(diff===1) edges.push([verts[i],verts[j]]);
+  }
+  edges.forEach(([a,b])=> line3(a,b,'rgba(111,184,255,0.30)',1));
+  verts.forEach(v=> dot3(v,'rgba(111,184,255,0.5)',1.8));
+}
+
+/* --- angle arcs drawn directly on the vector lines --- */
+function drawAngleArcs(bvec, theta, phi){
+  if(theta===null || theta===undefined) return;
+  const bdir = normalize(bvec);
+
+  // theta arc: between +z axis and B direction
+  const rTheta = 0.42;
+  const zAxis=[0,0,1];
+  const N=24; const thPts=[];
+  for(let i=0;i<=N;i++) thPts.push(slerp(zAxis,bdir,i/N).map(v=>v*rTheta));
+  arcPath3(thPts, '#ffb454', 2.2, [3,3]);
+  const thMid = slerp(zAxis,bdir,0.5).map(v=>v*(rTheta*1.28));
+  label3(thMid, 'θ='+theta.toFixed(1)+'°', '#ffb454', 0);
+
+  // phi arc: between +x axis and projection of B on xy plane (drawn in z=0 plane)
+  const bxy = normalize([bvec[0], bvec[1], 0]);
+  if(Math.hypot(bvec[0],bvec[1]) > 1e-4){
+    const rPhi = 0.32;
+    const xAxis=[1,0,0];
+    const phPts=[];
+    for(let i=0;i<=N;i++) phPts.push(slerp(xAxis,bxy,i/N).map(v=>v*rPhi));
+    arcPath3(phPts, '#5ee6a8', 2.2, [3,3]);
+    const phMid = slerp(xAxis,bxy,0.5).map(v=>v*(rPhi*1.35));
+    label3(phMid, 'φ='+phi.toFixed(1)+'°', '#5ee6a8', 0);
+  }
+}
+
+/* --- projection markers on each NV axis, with drop-lines from B tip --- */
+function drawProjections(bvec){
+  const mag = Math.hypot(...bvec);
+  if(mag < 0.01) return;
+  Object.values(NV).forEach(nv=>{
+    const Bi = dot(bvec, nv.v);
+    const markerPt = nv.v.map(c=>c*Bi);
+    // highlighted overlay segment from origin to projection point
+    line3([0,0,0], markerPt, nv.color, 4.5, 6);
+    dot3(markerPt, nv.color, 4.2);
+    // faint dashed perpendicular drop from B tip to the projection point
+    dashedLine3(bvec, markerPt, 'rgba(217,237,228,0.32)', 1.1, [3,3]);
+  });
+}
+
+/* --- small right-angle tick wherever B is (near) perpendicular to an NV axis --- */
+function drawPerpMarks(bvec){
+  const mag = Math.hypot(...bvec);
+  if(mag < 0.01) return;
+  const bd = normalize(bvec);
+  const e = 0.13;
+  Object.values(NV).forEach(nv=>{
+    const Bi = dot(bvec, nv.v);
+    if(Math.abs(Bi) < 0.05*mag){
+      const v = nv.v;
+      const p1 = [v[0]*e, v[1]*e, v[2]*e];
+      const p2 = [bd[0]*e, bd[1]*e, bd[2]*e];
+      const p3 = [p1[0]+p2[0], p1[1]+p2[1], p1[2]+p2[2]];
+      line3(p1, p3, 'rgba(217,237,228,0.9)', 1.5);
+      line3(p2, p3, 'rgba(217,237,228,0.9)', 1.5);
+    }
+  });
+}
+
+/* --- flag NV axes whose projections are (nearly) equal to one another --- */
+function drawEqualProjMarks(bvec){
+  const mag = Math.hypot(...bvec);
+  if(mag < 0.01) return;
+  const keys = ['k','x','p','l'];
+  const vals = keys.map(k=> dot(bvec, NV[k].v));
+  const tol = Math.max(0.03, 0.02*mag);
+  const groups = [];
+  const used = new Array(keys.length).fill(false);
+  for(let i=0;i<keys.length;i++){
+    if(used[i]) continue;
+    const grp=[i];
+    for(let j=i+1;j<keys.length;j++){
+      if(!used[j] && Math.abs(vals[i]-vals[j])<tol){ grp.push(j); used[j]=true; }
+    }
+    if(grp.length>1){ used[i]=true; groups.push(grp); }
+  }
+  groups.forEach(grp=>{
+    const pts = grp.map(idx=>{
+      const nv = NV[keys[idx]];
+      const Bi = vals[idx];
+      return nv.v.map(c=>c*Bi);
+    });
+    pts.forEach(p=>{
+      const pr=project(...p);
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(pr.sx, pr.sy, 6.5, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+  });
+}
+
+function drawScene(bvecDisplay, theta, phi){
+  ctx.clearRect(0,0,W,H);
+
+  // ground floor beneath the crystal, z points up
+  drawGround();
+
+  // crystal unit cube (behind everything else)
+  drawCube();
+
+  // crystal axes x,y,z drawn directly on the crystal — only while "Show angles" is on
+  if(showAngles){
+    const AX = 1.42;
+    line3([0,0,0],[AX,0,0], '#6fb8ff', 2, 4);
+    line3([0,0,0],[0,AX,0], '#6fb8ff', 2, 4);
+    line3([0,0,0],[0,0,AX], '#6fb8ff', 2, 4);
+    arrowHead([0,0,0],[AX,0,0], '#6fb8ff', 7, 4);
+    arrowHead([0,0,0],[0,AX,0], '#6fb8ff', 7, 4);
+    arrowHead([0,0,0],[0,0,AX], '#6fb8ff', 7, 4);
+    label3([AX,0,0],'x','#6fb8ff',4);
+    label3([0,AX,0],'y','#6fb8ff',4);
+    label3([0,0,AX],'z','#6fb8ff',-10);
+  }
+
+  // NV crystallographic axes — axes currently experiencing a real field projection
+  // stand out (brighter, thicker, glowing); axes with ~zero projection are dimmed down.
+  const L = 1.05;
+  Object.values(NV).forEach(nv=>{
+    const [x,y,z]=nv.v;
+    const Bi = dot(bvecDisplay, nv.v);
+    const activity = Math.min(1, Math.abs(Bi)/2.4);
+    const isActive = Math.abs(Bi) > 0.06;
+    const alpha = isActive ? (0.6 + 0.4*activity) : 0.22;
+    const col = hexToRgba(nv.color, alpha);
+    const width = isActive ? (2 + activity*2.8) : 1.3;
+    const glow = isActive ? (5 + activity*13) : 0;
+    line3([-x*L,-y*L,-z*L],[x*L,y*L,z*L], col, width, glow);
+    arrowHead([0,0,0],[x*L,y*L,z*L], col, isActive?9:5.5, glow);
+    label3([x*L,y*L,z*L], nv.name, isActive?nv.color:hexToRgba(nv.color,0.55), -6);
+  });
+
+  // projection markers + drop-lines (drawn under B, over the thin NV axes)
+  drawProjections(bvecDisplay);
+
+  // right-angle ticks wherever B ⊥ an NV axis; equal-projection rings only when angles overlay is off
+  drawPerpMarks(bvecDisplay);
+  if(!showAngles) drawEqualProjMarks(bvecDisplay);
+
+  // Field vector B (thick, glowing, animated marching dots — on top)
+  const mag = Math.hypot(...bvecDisplay);
+  if(mag > 0.01){
+    line3([0,0,0], bvecDisplay, 'rgba(216,97,240,0.28)', 8, 10); // soft underlay for body/glow
+    marchingLine3([0,0,0], bvecDisplay, '#d861f0', 4.5, 12, [3,9]);
+    arrowHead([0,0,0], bvecDisplay, '#d861f0', 15, 10);
+    label3(bvecDisplay, 'B', '#d861f0', 16);
+  }
+
+  // angle arcs — only when "Show angles" is toggled on
+  if(showAngles){
+    drawAngleArcs(bvecDisplay, theta, phi);
+  }
+
+  // origin dot
+  const o = project(0,0,0);
+  ctx.fillStyle = '#0f1815'; ctx.strokeStyle='#3a5348'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(o.sx,o.sy,4,0,7); ctx.fill(); ctx.stroke();
+
+  // corner orientation gizmos — crystal frame (top-left), lab frame (top-right) — always visible
+  drawCornerGizmos();
+}
+
+/* ---------------------------------------------------------------
+   Bar chart: projection onto each NV axis
+--------------------------------------------------------------- */
+const barCanvas = document.getElementById('barChart');
+const bctx = barCanvas.getContext('2d');
+function drawBars(projections){
+  const w=barCanvas.width, h=barCanvas.height;
+  bctx.clearRect(0,0,w,h);
+  const keys=['k','x','p','l'];
+  const maxAbs = Math.max(3.2, ...projections.map(p=>Math.abs(p)));
+  const midY = h/2;
+  const bw = 56, gap = (w - bw*4)/5;
+  bctx.strokeStyle='rgba(255,255,255,0.12)'; bctx.beginPath();
+  bctx.moveTo(0,midY); bctx.lineTo(w,midY); bctx.stroke();
+
+  // detect groups of near-equal projections so we can flag them
+  const mag = Math.hypot(...projections);
+  const tol = Math.max(0.03, 0.02*mag);
+  const groupOf = new Array(4).fill(-1);
+  let gid = 0;
+  for(let i=0;i<4;i++){
+    if(groupOf[i]!==-1) continue;
+    let found=false;
+    for(let j=i+1;j<4;j++){
+      if(Math.abs(projections[i]-projections[j])<tol){
+        if(groupOf[i]===-1) groupOf[i]=gid;
+        groupOf[j]=gid; found=true;
+      }
+    }
+    if(found) gid++;
+  }
+  const barX = keys.map((k,i)=> gap + i*(bw+gap));
+
+  keys.forEach((k,i)=>{
+    const nv = NV[k];
+    const val = projections[i];
+    const bx = barX[i];
+    const barH = (Math.abs(val)/maxAbs) * (h/2 - 14);
+    bctx.fillStyle = nv.color;
+    if(val>=0) bctx.fillRect(bx, midY-barH, bw, barH);
+    else bctx.fillRect(bx, midY, bw, barH);
+    // outline flags any bar whose value ties another bar's value
+    if(groupOf[i]!==-1){
+      bctx.strokeStyle='rgba(255,255,255,0.85)'; bctx.lineWidth=1.8;
+      if(val>=0) bctx.strokeRect(bx+1, midY-barH+1, bw-2, barH-2);
+      else bctx.strokeRect(bx+1, midY+1, bw-2, barH-2);
+    }
+    bctx.font='600 11px IBM Plex Mono, monospace';
+    bctx.fillStyle = '#d9ede4';
+    bctx.textAlign='center';
+    bctx.fillText(nv.name.replace('NV',''), bx+bw/2, h-4);
+    bctx.fillStyle = nv.color;
+    bctx.fillText(val.toFixed(2), bx+bw/2, val>=0 ? (midY-barH-6) : (midY+barH+14));
+  });
+
+  bctx.textAlign='left';
+}
+
+/* ---------------------------------------------------------------
+   Spectrum sketch
+--------------------------------------------------------------- */
+const specCanvas = document.getElementById('specChart');
+const sctx = specCanvas.getContext('2d');
+function lorentzian(x,x0,w){ return 1/(1+Math.pow((x-x0)/w,2)); }
+function drawSpectrum(projections){
+  const w=specCanvas.width, h=specCanvas.height;
+  sctx.clearRect(0,0,w,h);
+  const fMin=2.74, fMax=3.00;
+  const freqs=[];
+  projections.forEach(Bi=>{
+    freqs.push(D - GAMMA*Bi);
+    freqs.push(D + GAMMA*Bi);
+  });
+  sctx.strokeStyle='rgba(255,255,255,0.12)';
+  sctx.beginPath(); sctx.moveTo(10,h-18); sctx.lineTo(w-10,h-18); sctx.stroke();
+
+  const N=300, ys=[];
+  for(let i=0;i<=N;i++){
+    const f = fMin + (fMax-fMin)*i/N;
+    let dip=0;
+    freqs.forEach(f0=> dip = Math.max(dip, lorentzian(f,f0,0.006)));
+    ys.push(dip);
+  }
+  const topY = 16, baseY = h-18; // full-depth dips now reach all the way down to the baseline
+  sctx.beginPath();
+  ys.forEach((v,i)=>{
+    const x = 10 + (w-20)*i/N;
+    const y = topY + v*(baseY-topY);
+    if(i===0) sctx.moveTo(x,y); else sctx.lineTo(x,y);
+  });
+  sctx.strokeStyle='#d861f0'; sctx.lineWidth=2; sctx.stroke();
+
+  sctx.font='500 9.5px IBM Plex Mono, monospace'; sctx.fillStyle='#7d9a8e';
+  sctx.fillText(fMin.toFixed(2)+' GHz', 8, h-4);
+  sctx.textAlign='right';
+  sctx.fillText(fMax.toFixed(2)+' GHz', w-8, h-4);
+  sctx.textAlign='left';
+}
+
+/* ---------------------------------------------------------------
+   State machine / animation loop
+--------------------------------------------------------------- */
+let curIndex = 0;
+let curVec = cartesian(90,0,0.0001); // starting vector for interpolation
+let animT = 1;           // 0..1 progress of current tween
+let animDur = 1.4;       // seconds
+let holdDur = 1.3;       // seconds pause at target
+let holding = false, holdT = 0;
+let playing = true;
+let speed = 1;
+let lastTime = performance.now();
+let fromVec = curVec.slice();
+let toVec = curVec.slice();
+
+function easeInOutCubic(t){ return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+
+function setUIForCase(idx){
+  const c = CASES[idx];
+  document.getElementById('rTheta').textContent = c.theta===null ? '—' : c.theta.toFixed(1)+'°';
+  document.getElementById('rPhi').textContent   = c.phi===null ? '—' : c.phi.toFixed(1)+'°';
+  document.getElementById('rMag').textContent   = c.mag.toFixed(2)+' mT';
+  document.getElementById('rDips').textContent  = c.dips;
+  document.getElementById('caseTitle').textContent = c.title;
+  document.getElementById('caseDesc').textContent = c.desc;
+  document.querySelectorAll('.case-btn').forEach((b,i)=> b.classList.toggle('active', i===idx));
+
+  const dots = document.getElementById('dipDots');
+  dots.innerHTML='';
+  for(let i=0;i<8;i++){
+    const d=document.createElement('div');
+    d.className='dipdot'+(i<c.dips?' on':'');
+    dots.appendChild(d);
+  }
+}
+
+function goTo(idx, animate=true){
+  idx = ((idx % CASES.length)+CASES.length)%CASES.length;
+  const c = CASES[idx];
+  fromVec = curVec.slice();
+  toVec = cartesian(c.theta===null?90:c.theta, c.phi===null?0:c.phi, c.mag);
+  animT = animate?0:1;
+  holding = false; holdT = 0;
+  curIndex = idx;
+  setUIForCase(idx);
+}
+
+function buildCaseStrip(){
+  const strip = document.getElementById('caseStrip');
+  CASES.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='case-btn'; b.textContent=c.label+' · '+c.dips+'d';
+    b.addEventListener('click', ()=>{ playing=false; updatePlayIcon(); goTo(i); });
+    strip.appendChild(b);
+  });
+}
+
+function updatePlayIcon(){
+  document.getElementById('playBtn').innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
+}
+
+document.getElementById('playBtn').addEventListener('click', ()=>{ playing=!playing; updatePlayIcon(); });
+document.getElementById('nextBtn').addEventListener('click', ()=>{ playing=false; updatePlayIcon(); goTo(curIndex+1); });
+document.getElementById('prevBtn').addEventListener('click', ()=>{ playing=false; updatePlayIcon(); goTo(curIndex-1); });
+document.getElementById('speedSlider').addEventListener('input', e=>{ speed = parseFloat(e.target.value); });
+document.getElementById('zoomInBtn').addEventListener('click', ()=>{ camZoom = Math.min(2.5, camZoom*1.18); });
+document.getElementById('zoomOutBtn').addEventListener('click', ()=>{ camZoom = Math.max(0.5, camZoom/1.18); });
+
+let showAngles = false;
+const anglesBtn = document.getElementById('anglesBtn');
+anglesBtn.addEventListener('click', ()=>{
+  showAngles = !showAngles;
+  anglesBtn.textContent = showAngles ? 'Hide angles' : 'Show angles';
+  anglesBtn.classList.toggle('active', showAngles);
+});
+
+function tick(now){
+  const dt = Math.min(0.05, (now-lastTime)/1000) * speed;
+  lastTime = now;
+  dashPhase = (dashPhase + dt*55) % 1000;
+
+  if(!holding){
+    animT = Math.min(1, animT + dt/animDur);
+    const e = easeInOutCubic(animT);
+    curVec = [
+      fromVec[0] + (toVec[0]-fromVec[0])*e,
+      fromVec[1] + (toVec[1]-fromVec[1])*e,
+      fromVec[2] + (toVec[2]-fromVec[2])*e,
+    ];
+    if(animT>=1){ holding=true; holdT=0; }
+  } else if(playing){
+    holdT += dt;
+    if(holdT >= holdDur){ goTo(curIndex+1); }
+  }
+
+  const projections = ['k','x','p','l'].map(k=> dot(curVec, NV[k].v));
+  const curMag = Math.hypot(...curVec);
+  const liveTheta = curMag>0.01 ? Math.acos(Math.max(-1,Math.min(1,curVec[2]/curMag)))*180/Math.PI : null;
+  const liveB = curMag>0.01 ? Math.hypot(curVec[0],curVec[1]) : 0;
+  const livePhi = (curMag>0.01 && liveB>1e-4) ? (Math.atan2(curVec[1],curVec[0])*180/Math.PI+360)%360 : null;
+  drawScene(curVec, liveTheta, livePhi);
+  drawBars(projections);
+  drawSpectrum(projections.map(p=>{
+    // scale visualization-only vector projections back to a physical-ish mT range for the spectrum sketch:
+    // curVec already carries physical mT magnitude (interpolated), so projections are already in mT.
+    return p;
+  }));
+
+  requestAnimationFrame(tick);
+}
+
+/* init */
+buildCaseStrip();
+goTo(0, false);
+requestAnimationFrame(tick);
+window.addEventListener('resize', ()=>{ /* fixed internal resolution, CSS scales it */ });
+</script>
+</body>
+</html>
